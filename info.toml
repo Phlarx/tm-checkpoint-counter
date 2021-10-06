@@ -1,0 +1,12 @@
+[meta]
+name = "Checkpoint Counter"
+author = "Phlarx"
+category = "Utilities"
+
+siteid = 79
+version = "2.2"
+
+blocks = [ "Plugin_CheckpointCounter" ]
+
+[script]
+imports = [ "Icons.as" ]
