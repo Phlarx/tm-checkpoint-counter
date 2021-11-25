@@ -209,7 +209,8 @@ void Update(float dt) {
 					// this waypoint looks like a CP, acts like a CP, but is not called a CP.
 					if(strictMode) {
 						warn("The current map, " + string(playground.Map.MapName) + " (" + playground.Map.IdName + "), is not compliant with checkpoint naming rules."
-								 + " If the CP count for this map is inaccurate, please report this map to Phlarx#1765 on Discord.");
+								 + " If the CP count for this map is inaccurate, please report this map on the GitHub issues page:"
+								 + " https://github.com/Phlarx/tm-checkpoint-counter/issues");
 					}
 					maxCP++;
 					strictMode = false;
