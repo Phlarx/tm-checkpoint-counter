@@ -1,5 +1,6 @@
 /*
  * author: Phlarx
+ * v2.4
  */
 
 namespace CP {
@@ -58,13 +59,6 @@ namespace CP {
 		if(scriptPlayer is null) {
 			inGame = false;
 			return;
-		}
-		
-		if(hideCounterWithIFace) {
-			if(playground.Interface is null || Dev::GetOffsetUint32(playground.Interface, 0x1C) == 0) {
-				inGame = false;
-				return;
-			}
 		}
 		
 		if(player.CurrentLaunchedRespawnLandmarkIndex == uint(-1)) {
@@ -153,13 +147,6 @@ namespace CP {
 			return;
 		}
 		
-		if(hideCounterWithIFace) {
-			if(playground.Interface is null || Dev::GetOffsetUint32(playground.Interface, 0x1C) == 0) {
-				inGame = false;
-				return;
-			}
-		}
-		
 		/* Turbo doesn't support linked checkpoints, so this is sufficient */
 		maxCP = playgroundScript.MapCheckpointPos.Length;
 		
@@ -187,13 +174,6 @@ namespace CP {
 			|| scriptPlayer.RaceState != CTrackManiaPlayer::ERaceState::Running) {
 			inGame = false;
 			return;
-		}
-		
-		if(hideCounterWithIFace) {
-			if(playground.Interface is null || Dev::GetOffsetUint32(playground.Interface, 0x1C) == 0) {
-				inGame = false;
-				return;
-			}
 		}
 		
 		/* GetApp().PlaygroundScript.MapCheckpointPos.Length would be easier, but incorrect for linked CPs */

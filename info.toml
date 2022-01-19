@@ -4,7 +4,7 @@ author = "Phlarx"
 category = "Utilities"
 
 siteid = 79
-version = "2.3"
+version = "2.4"
 
 blocks = [ "Plugin_CheckpointCounter" ]
 

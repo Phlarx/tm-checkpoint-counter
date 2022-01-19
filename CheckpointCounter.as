@@ -6,7 +6,7 @@
 bool showCounter = true;
 
 [Setting name="Hide counter when interface is hidden"]
-bool hideCounterWithIFace = false;
+bool hideWithIFace = false;
 
 [Setting name="Anchor X position" min=0 max=1]
 float anchorX = .5;
@@ -89,6 +89,10 @@ string getDisplayText() {
 }
 
 void Render() {
+	if(hideWithIFace && !UI::IsRendering()) {
+		return;
+	}
+	
 	if(showCounter && CP::inGame && (CP::maxCP > 0 || !hideIfZeroCP)) {
 		string text = getDisplayText();
 		
