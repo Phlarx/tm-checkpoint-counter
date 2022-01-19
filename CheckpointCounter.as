@@ -23,6 +23,9 @@ float anchorY = .88;
 [Setting name="Show background"]
 bool showBackground = false;
 
+[Setting name="Hide the counter if there is no checkpoint on the current map"]
+bool hideIfZeroCP = false;
+
 [Setting name="Font size" min=8 max=72]
 int fontSize = 24;
 
@@ -86,7 +89,7 @@ string getDisplayText() {
 }
 
 void Render() {
-	if(showCounter && CP::inGame) {
+	if(showCounter && CP::inGame && (CP::maxCP > 0 || !hideIfZeroCP)) {
 		string text = getDisplayText();
 		
 		nvg::FontSize(fontSize);
