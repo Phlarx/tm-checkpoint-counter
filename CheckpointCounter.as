@@ -23,13 +23,13 @@ float anchorY = .88;
 [Setting name="Show background"]
 bool showBackground = false;
 
-[Setting name="Hide the counter if there is no checkpoint on the current map"]
+[Setting name="Hide the counter if there are no checkpoints on the current map"]
 bool hideIfZeroCP = false;
 
 [Setting name="Font size" min=8 max=72]
 int fontSize = 24;
 
-[Setting name="Font face"]
+[Setting name="Font face" description="To access a custom font, place the font file in the 'Fonts' folder under your Openplanet user directory (create it if it does not exist). Then, enter the full file name in this box."]
 string fontFace = "";
 
 [Setting name="Display mode"]
