@@ -89,7 +89,13 @@ string getDisplayText() {
 }
 
 void Render() {
-	if(hideWithIFace && !UI::IsRendering()) {
+#if TMNEXT
+	if(hideWithIFace && !UI::IsGameUIVisible()) {
+#else
+	// see https://github.com/Phlarx/tm-checkpoint-counter/issues/8
+	auto playground = cast<CTrackManiaRaceNew>(GetApp().CurrentPlayground);
+	if(hideWithIFace && (playground is null || playground.Interface is null || Dev::GetOffsetUint32(playground.Interface, 0x1C) == 0)) {
+#endif
 		return;
 	}
 	
@@ -121,7 +127,7 @@ void Render() {
 	}
 }
 
-string doFormat(const string format) {
+string doFormat(const string &in format) {
 	string result = "";
 	int idx = 0;
 	while(idx < format.Length) {
