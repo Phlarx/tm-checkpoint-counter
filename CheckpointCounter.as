@@ -55,15 +55,15 @@ enum EDispMode {
 }
 
 string curFontFace = "";
-Resources::Font@ font;
+nvg::Font font;
+
+void Main() {
+	OnSettingsChanged();
+}
 
 void OnSettingsChanged() {
 	if(fontFace != curFontFace) {
-		@font = Resources::GetFont(fontFace);
-		if(font !is null) {
-			auto fontIcons = Resources::GetFont("ManiaIcons.ttf");
-			nvg::AddFallbackFont(font, fontIcons);
-		}
+		font = nvg::LoadFont(fontFace, true);
 		curFontFace = fontFace;
 	}
 }
@@ -89,13 +89,7 @@ string getDisplayText() {
 }
 
 void Render() {
-#if TMNEXT
 	if(hideWithIFace && !UI::IsGameUIVisible()) {
-#else
-	// see https://github.com/Phlarx/tm-checkpoint-counter/issues/8
-	auto playground = cast<CTrackManiaRaceNew>(GetApp().CurrentPlayground);
-	if(hideWithIFace && (playground is null || playground.Interface is null || Dev::GetOffsetUint32(playground.Interface, 0x1C) == 0)) {
-#endif
 		return;
 	}
 	
@@ -103,16 +97,15 @@ void Render() {
 		string text = getDisplayText();
 		
 		nvg::FontSize(fontSize);
-		if(font !is null) {
-			nvg::FontFace(font);
-		}
+		nvg::FontFace(font);
 		nvg::TextAlign(nvg::Align::Center | nvg::Align::Middle);
+		
+		vec2 size = nvg::TextBounds(text);
 		
 		if(showBackground) {
 			nvg::FillColor(vec4(0, 0, 0, 0.8));
-			vec2 size = nvg::TextBoxBounds(anchorX * Draw::GetWidth() - 100, anchorY * Draw::GetHeight(), 200, text);
 			nvg::BeginPath();
-			nvg::RoundedRect(anchorX * Draw::GetWidth() - size.x * 0.6, anchorY * Draw::GetHeight() - size.y * 0.67, size.x * 1.2, size.y * 1.2, 5);
+			nvg::RoundedRect(anchorX * Draw::GetWidth() - size.x * 0.5 - 8, anchorY * Draw::GetHeight() - size.y * 0.5 - 6, size.x + 16, size.y + 8, 5);
 			nvg::Fill();
 			nvg::ClosePath();
 		}
@@ -123,7 +116,7 @@ void Render() {
 			nvg::FillColor(colorNormal);
 		}
 		
-		nvg::TextBox(anchorX * Draw::GetWidth() - 100, anchorY * Draw::GetHeight(), 200, text);
+		nvg::Text(anchorX * Draw::GetWidth(), anchorY * Draw::GetHeight(), text);
 	}
 }
 
