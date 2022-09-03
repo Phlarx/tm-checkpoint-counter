@@ -7,6 +7,3 @@ siteid = 79
 version = "2.5"
 
 blocks = [ "Plugin_CheckpointCounter" ]
-
-[script]
-imports = [ "Icons.as" ]
