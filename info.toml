@@ -1,9 +1,14 @@
 [meta]
 name = "Checkpoint Counter"
 author = "Phlarx"
-category = "Utilities"
+category = "Race"
 
 siteid = 79
-version = "2.5.1"
+version = "3.0.0"
 
 blocks = [ "Plugin_CheckpointCounter" ]
+
+[script]
+module = "CP"
+exports = [ "CheckpointAPI.as" ]
+optional_dependencies = [ "PlayerState" ]

@@ -29,17 +29,30 @@ bool hideIfZeroCP = false;
 [Setting name="Font size" min=8 max=72]
 int fontSize = 24;
 
-[Setting name="Font face" description="To access a custom font, place the font file in the 'Fonts' folder under your Openplanet user directory (create it if it does not exist). Then, enter the full file name in this box."]
+[Setting name="Font face" description="To access a custom font, place the font file in the 'Fonts' folder\
+under your Openplanet user directory (create it if it does not exist).\
+Then, enter the full file name in this box."]
 string fontFace = "";
 
 [Setting name="Display mode"]
 EDispMode dispMode = EDispMode::ShowCompletedAndTotal;
 
-[Setting name="Custom display format" description="%c is completed count, %r is remaining count, %t is total count, %% is a literal %"]
+[Setting name="Custom display format" description="%c is completed CPs\
+%d is next CP\
+%r is remaining CPs\
+%t is total CPs\
+%C is completed laps\
+%D is current lap\
+%R is remaining laps\
+%T is total laps\
+%% is a literal %"]
 string customFormat = "%c / -%r / %t";
 
 [Setting name="Change color when go-to-finish"]
 bool finishColorChange = false;
+
+[Setting name="Change color only on last lap"]
+bool finishColorChangeLastLapOnly = false;
 
 [Setting color name="Normal color"]
 vec4 colorNormal = vec4(1, 1, 1, 1);
@@ -51,6 +64,8 @@ enum EDispMode {
 	ShowCompletedAndTotal,
 	ShowRemainingAndTotal,
 	ShowCompletedAndRemaining,
+	ShowCompletedAndLaps,
+	ShowLaps,
 	ShowCustom
 }
 
@@ -58,7 +73,14 @@ string curFontFace = "";
 nvg::Font font;
 
 void Main() {
+	// load any custom fonts
 	OnSettingsChanged();
+	
+	CP::Main();
+}
+
+void Update(float dt) {
+	CP::Update();
 }
 
 void OnSettingsChanged() {
@@ -82,6 +104,10 @@ string getDisplayText() {
 		return doFormat("-%r / %t");
 	case EDispMode::ShowCompletedAndRemaining:
 		return doFormat("%c / -%r");
+	case EDispMode::ShowCompletedAndLaps:
+		return doFormat("CP: %c / %t      Lap: %D / %T");
+	case EDispMode::ShowLaps:
+		return doFormat("%D / %T");
 	case EDispMode::ShowCustom:
 		return doFormat(customFormat);
 	}
@@ -110,7 +136,7 @@ void Render() {
 			nvg::ClosePath();
 		}
 		
-		if(finishColorChange && CP::curCP == CP::maxCP) {
+		if(finishColorChange && CP::curCP == CP::maxCP && (!finishColorChangeLastLapOnly || CP::curLap + 1 == CP::maxLap)) {
 			nvg::FillColor(colorGoToFinish);
 		} else {
 			nvg::FillColor(colorNormal);
@@ -126,11 +152,26 @@ string doFormat(const string &in format) {
 	while(idx < format.Length) {
 		if(format[idx] == 37 /*"%"[0]*/ && idx + 1 < format.Length) {
 			switch(format[idx + 1]) {
+			case 67 /*"C"[0]*/:
+				result += "" + CP::curLap;
+				break;
+			case 68 /*"D"[0]*/:
+				result += "" + (CP::curLap + 1);
+				break;
+			case 82 /*"R"[0]*/:
+				result += "" + int(CP::maxLap - CP::curLap);
+				break;
+			case 84 /*"T"[0]*/:
+				result += "" + CP::maxLap;
+				break;
 			case 99 /*"c"[0]*/:
 				result += "" + CP::curCP;
 				break;
+			case 100 /*"d"[0]*/:
+				result += "" + (CP::curCP + 1);
+				break;
 			case 114 /*"r"[0]*/:
-				result += "" + (CP::maxCP - CP::curCP);
+				result += "" + int(CP::maxCP - CP::curCP);
 				break;
 			case 116 /*"t"[0]*/:
 				result += "" + CP::maxCP;
@@ -149,8 +190,4 @@ string doFormat(const string &in format) {
 		}
 	}
 	return result;
-}
-
-void Update(float dt) {
-	CP::Update();
 }

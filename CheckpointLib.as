@@ -1,43 +1,44 @@
 /*
  * author: Phlarx
- * v2.4
  */
 
 namespace CP {
-	/**
-	 * If true, then this plugin has detected that we are in game, on a map.
-	 * If false, none of the other values are valid.
-	 */
-	bool inGame = false;
+	bool _inGame = false;
+	bool _strictMode = true;
+	string _curMapId = "";
+	uint _curCP = 0;
+	int _curCPLapTime = 0;
+	int _curCPRaceTime = 0;
+	uint _curLap = 0;
+	uint _maxCP = 0;
+	uint _maxLap = 0;
 	
-	/**
-	 * If false, then at least one checkpoint tag is a non-standard value.
-	 * Only applies to NEXT and MP4.
-	 */
-	bool strictMode = false;
+	bool get_inGame() property { return _inGame; }
+	bool get_strictMode() property { return _strictMode; }
+	string get_curMapId() property { return _curMapId; }
+	uint get_curCP() property { return _curCP; }
+	int get_curCPLapTime() property { return _curCPLapTime; }
+	int get_curCPRaceTime() property { return _curCPRaceTime; }
+	uint get_curLap() property { return _curLap; }
+	uint get_maxCP() property { return _maxCP; }
+	uint get_maxLap() property { return _maxLap; }
 	
-	/**
-	 * The ID of the map whose checkpoints have been counted.
-	 */
-	string curMapId = "";
+#if TMNEXT
+	uint _preCPIdx = 0;
+	uint _preLapStartTime = 0;
+#endif
 	
-	/**
-	 * The number of checkpoints completed in the current lap.
-	 */
-	uint curCP = 0;
+	void Main() {
+#if TMNEXT && DEPENDENCY_PLAYERSTATE
+		print("CheckpointCounter lib is using PlayerState for checkpoint data");
+#elif TMNEXT
+		print("CheckpointCounter lib is not using PlayerState for checkpoint data");
+#endif
+	}
 	
-	/**
-	 * The number of checkpoints detected for the current map.
-	 */
-	uint maxCP = 0;
-	
-	/**
-	 * Internal values.
-	 */
-	uint preCPIdx = 0;
-	
-	/**
-	 * Update should be called once per tick, within the plugin's Update(dt) function.
+	/*
+	 * Update detects map changes, and re-counts CPs when it occurs.
+	 * Additionally, it updates the CP/Lap info while a race is underway.
 	 */
 	void Update() {
 #if TMNEXT
@@ -49,7 +50,7 @@ namespace CP {
 			|| playground.GameTerminals.Length <= 0
 			|| playground.GameTerminals[0].UISequence_Current != CGamePlaygroundUIConfig::EUISequence::Playing
 			|| cast<CSmPlayer>(playground.GameTerminals[0].GUIPlayer) is null) {
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
@@ -57,74 +58,84 @@ namespace CP {
 		auto scriptPlayer = cast<CSmPlayer>(playground.GameTerminals[0].GUIPlayer).ScriptAPI;
 		
 		if(scriptPlayer is null) {
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
 		if(player.CurrentLaunchedRespawnLandmarkIndex == uint(-1)) {
 			// sadly, can't see CPs of spectated players any more
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
 		MwFastBuffer<CGameScriptMapLandmark@> landmarks = playground.Arena.MapLandmarks;
 		
-		if(!inGame && (curMapId != playground.Map.IdName || GetApp().Editor !is null)) {
+		if(!_inGame && (_curMapId != playground.Map.IdName || GetApp().Editor !is null)) {
 			// keep the previously-determined CP data, unless in the map editor
-			curMapId = playground.Map.IdName;
-			preCPIdx = player.CurrentLaunchedRespawnLandmarkIndex;
-			curCP = 0;
-			maxCP = 0;
-			strictMode = true;
+			_curMapId = playground.Map.IdName;
+			_curCP = 0;
+			_maxCP = 0;
+			_curLap = 0;
+			_maxLap = playground.Map.TMObjective_NbLaps;
+			_strictMode = true;
 			
 			array<int> links = {};
 			for(uint i = 0; i < landmarks.Length; i++) {
 				if(landmarks[i].Waypoint !is null && !landmarks[i].Waypoint.IsFinish && !landmarks[i].Waypoint.IsMultiLap) {
 					// we have a CP, but we don't know if it is Linked or not
 					if(landmarks[i].Tag == "Checkpoint") {
-						maxCP++;
+						_maxCP += 1;
 					} else if(landmarks[i].Tag == "LinkedCheckpoint") {
 						if(links.Find(landmarks[i].Order) < 0) {
-							maxCP++;
+							_maxCP += 1;
 							links.InsertLast(landmarks[i].Order);
 						}
 					} else {
 						// this waypoint looks like a CP, acts like a CP, but is not called a CP.
-						if(strictMode) {
+						if(_strictMode) {
 							warn("The current map, " + string(playground.Map.MapName) + " (" + playground.Map.IdName + "), is not compliant with checkpoint naming rules."
 									+ " If the CP count for this map is inaccurate, please report this map on the GitHub issues page:"
 									+ " https://github.com/Phlarx/tm-checkpoint-counter/issues");
 						}
-						maxCP++;
-						strictMode = false;
+						_maxCP += 1;
+						_strictMode = false;
 					}
 				}
 			}
 		}
-		inGame = true;
+		_inGame = true;
 		
-		/* These are all always length zero, and so are useless:
-		player.ScriptAPI.RaceWaypointTimes
-		player.ScriptAPI.LapWaypointTimes
-		player.ScriptAPI.CurrentLapWaypointTimes
-		player.ScriptAPI.PreviousLapWaypointTimes
-		player.ScriptAPI.Score.BestRaceTimes
-		player.ScriptAPI.Score.PrevRaceTimes
-		player.ScriptAPI.Score.BestLapTimes
-		player.ScriptAPI.Score.PrevLapTimes
-		*/
-		
-		if(preCPIdx != player.CurrentLaunchedRespawnLandmarkIndex && landmarks.Length > player.CurrentLaunchedRespawnLandmarkIndex) {
-			preCPIdx = player.CurrentLaunchedRespawnLandmarkIndex;
+#if DEPENDENCY_PLAYERSTATE
+		// PlayerState is heavier, but allows detecting multiple CPs in one frame, as well as getting lap times
+		if(PlayerState::GetRaceData().PlayerState == PlayerState::EPlayerState::EPlayerState_Driving) {
+			auto info = PlayerState::GetRaceData().dPlayerInfo;
+			_curCP = info.NumberOfCheckpointsPassed;
+			if(info.LatestCPTime > 0) {
+				// LatestCPTime currently only exists for 1 frame
+				_curCPLapTime = info.LatestCPTime - info.LapStartTime;
+				_curCPRaceTime = info.LatestCPTime;
+			}
+			_curLap = info.CurrentLapNumber;
+		} else {
+			_curCP = 0;
+			_curCPLapTime = 0;
+			_curCPRaceTime = 0;
+			_curLap = 0;
+		}
+#else
+		// The original method
+		if(_preCPIdx != player.CurrentLaunchedRespawnLandmarkIndex && landmarks.Length > player.CurrentLaunchedRespawnLandmarkIndex) {
+			_preCPIdx = player.CurrentLaunchedRespawnLandmarkIndex;
 			
-			if(landmarks[preCPIdx].Waypoint is null || landmarks[preCPIdx].Waypoint.IsFinish || landmarks[preCPIdx].Waypoint.IsMultiLap) {
+			if(landmarks[_preCPIdx].Waypoint is null || landmarks[_preCPIdx].Waypoint.IsFinish || landmarks[_preCPIdx].Waypoint.IsMultiLap) {
 				// if null, it's a start block. if the other flags, it's either a multilap or a finish.
 				// in all such cases, we reset the completed cp count to zero.
-				curCP = 0;
+				_curCP = 0;
 			} else {
-				curCP++;
+				_curCP++;
 			}
 		}
+#endif
 		
 #elif TURBO
 		auto playground = cast<CTrackManiaRaceNew>(GetApp().CurrentPlayground);
@@ -134,7 +145,7 @@ namespace CP {
 			|| playgroundScript is null
 			|| playground.GameTerminals.Length <= 0
 			|| cast<CTrackManiaPlayer>(playground.GameTerminals[0].ControlledPlayer) is null) {
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
@@ -143,17 +154,21 @@ namespace CP {
 		if(player is null
 			|| player.CurLap is null
 			|| player.RaceState != CTrackManiaPlayer::ERaceState::Running) {
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
 		/* Turbo doesn't support linked checkpoints, so this is sufficient */
-		maxCP = playgroundScript.MapCheckpointPos.Length;
+		_maxCP = playgroundScript.MapCheckpointPos.Length;
+		_maxLap = playgroundScript.MapNbLaps;
 		
-		inGame = true;
+		_inGame = true;
 		
 		/* Checkpoints gains the time value of each CP as it is passed */
-		curCP = player.CurLap.Checkpoints.Length;
+		_curCP = player.CurLap.Checkpoints.Length;
+		_curCPLapTime = player.CurLap.Checkpoints.Length > 0 ? player.CurLap.Checkpoints[player.CurLap.Checkpoints.Length - 1] : 0;
+		_curCPRaceTime = player.CurRace.Checkpoints.Length > 0 ? player.CurRace.Checkpoints[player.CurRace.Checkpoints.Length - 1] : 0;
+		_curLap = player.CurrentNbLaps;
 		
 #elif MP4
 		auto playground = cast<CTrackManiaRaceNew>(GetApp().CurrentPlayground);
@@ -163,7 +178,7 @@ namespace CP {
 			|| rootMap is null
 			|| playground.GameTerminals.Length <= 0
 			|| cast<CTrackManiaPlayer>(playground.GameTerminals[0].GUIPlayer) is null) {
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
@@ -172,17 +187,20 @@ namespace CP {
 		if(scriptPlayer is null
 			|| scriptPlayer.CurLap is null
 			|| scriptPlayer.RaceState != CTrackManiaPlayer::ERaceState::Running) {
-			inGame = false;
+			_inGame = false;
 			return;
 		}
 		
 		/* GetApp().PlaygroundScript.MapCheckpointPos.Length would be easier, but incorrect for linked CPs */
 		
-		if(!inGame && (curMapId != rootMap.IdName || GetApp().Editor !is null)) {
+		if(!_inGame && (_curMapId != rootMap.IdName || GetApp().Editor !is null)) {
 			// keep the previously-determined CP data, unless in the map editor
-			curMapId = rootMap.IdName;
-			maxCP = 0;
-			strictMode = true;
+			_curMapId = rootMap.IdName;
+			_curCP = 0;
+			_maxCP = 0;
+			_curLap = 0;
+			_maxLap = rootMap.TMObjective_NbLaps;
+			_strictMode = true;
 			
 			array<int> links = {};
 			for(uint i = 0; i < rootMap.Blocks.Length; i++) {
@@ -192,21 +210,21 @@ namespace CP {
 					if(type == CGameCtnBlockInfo::EWayPointType::Checkpoint) {
 						// we have a CP, but we don't know if it is Linked or not
 						if(tag == "Checkpoint" || tag == "Goal") {
-							maxCP++;
+							_maxCP++;
 						} else if(tag == "LinkedCheckpoint") {
 							if(links.Find(rootMap.Blocks[i].WaypointSpecialProperty.Order) < 0) {
-								maxCP++;
+								_maxCP++;
 								links.InsertLast(rootMap.Blocks[i].WaypointSpecialProperty.Order);
 							}
 						} else {
 							// this waypoint looks like a CP, acts like a CP, but is not called a CP.
-							if(strictMode) {
+							if(_strictMode) {
 								warn("The current map, " + string(rootMap.MapName) + " (" + rootMap.IdName + "), is not compliant with checkpoint naming rules."
 										+ " If the CP count for this map is inaccurate, please report this map on the GitHub issues page:"
 										+ " https://github.com/Phlarx/tm-checkpoint-counter/issues");
 							}
-							maxCP++;
-							strictMode = false;
+							_maxCP++;
+							_strictMode = false;
 						}
 					}
 				}
@@ -218,30 +236,33 @@ namespace CP {
 					if(type == CGameItemModel::EnumWaypointType::Checkpoint) {
 						// we have a CP, but we don't know if it is Linked or not
 						if(tag == "Checkpoint" || tag == "Goal") {
-							maxCP++;
+							_maxCP++;
 						} else if(tag == "LinkedCheckpoint") {
 							if(links.Find(rootMap.AnchoredObjects[i].WaypointSpecialProperty.Order) < 0) {
-								maxCP++;
+								_maxCP++;
 								links.InsertLast(rootMap.AnchoredObjects[i].WaypointSpecialProperty.Order);
 							}
 						} else {
 							// this waypoint looks like a CP, acts like a CP, but is not called a CP.
-							if(strictMode) {
+							if(_strictMode) {
 								warn("The current map, " + string(rootMap.MapName) + " (" + rootMap.IdName + "), is not compliant with checkpoint naming rules."
 										+ " If the CP count for this map is inaccurate, please report this map on the GitHub issues page:"
 										+ " https://github.com/Phlarx/tm-checkpoint-counter/issues");
 							}
-							maxCP++;
-							strictMode = false;
+							_maxCP++;
+							_strictMode = false;
 						}
 					}
 				}
 			}
 		}
-		inGame = true;
+		_inGame = true;
 		
 		/* Checkpoints gains the time value of each CP as it is passed */
-		curCP = scriptPlayer.CurLap.Checkpoints.Length;
+		_curCP = scriptPlayer.CurLap.Checkpoints.Length;
+		_curCPLapTime = Math::Max(0, scriptPlayer.CurCheckpointLapTime);
+		_curCPRaceTime = Math::Max(0, scriptPlayer.CurCheckpointRaceTime);
+		_curLap = scriptPlayer.CurrentNbLaps;
 		
 #endif
 	}
