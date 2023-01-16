@@ -65,6 +65,7 @@ enum EDispMode {
 	ShowRemainingAndTotal,
 	ShowCompletedAndRemaining,
 	ShowCompletedAndLaps,
+	ShowCompletedAndLapsOnMultilap,
 	ShowLaps,
 	ShowCustom
 }
@@ -106,6 +107,13 @@ string getDisplayText() {
 		return doFormat("%c / -%r");
 	case EDispMode::ShowCompletedAndLaps:
 		return doFormat("CP: %c / %t      Lap: %D / %T");
+	case EDispMode::ShowCompletedAndLapsOnMultilap:
+		if (CP::maxLap > 1) {
+			return doFormat("CP: %c / %t      Lap: %D / %T");
+		} else {
+			return doFormat("%c / %t");
+		}
+		
 	case EDispMode::ShowLaps:
 		return doFormat("%D / %T");
 	case EDispMode::ShowCustom:
