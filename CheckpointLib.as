@@ -76,7 +76,7 @@ namespace CP {
 			_curCP = 0;
 			_maxCP = 0;
 			_curLap = 0;
-			_maxLap = playground.Map.TMObjective_NbLaps;
+			_maxLap = playground.Map.TMObjective_IsLapRace ? playground.Map.TMObjective_NbLaps : 1;
 			_strictMode = true;
 			
 			array<int> links = {};
