@@ -5,8 +5,14 @@
 [Setting name="Show counter"]
 bool showCounter = true;
 
-[Setting name="Hide counter when interface is hidden"]
-bool hideWithIFace = false;
+enum displays {
+	Only_when_Openplanet_menu_is_open,
+	Always_except_when_interface_is_hidden,
+	Always
+}
+
+[Setting name="Display setting"]
+displays setting_display = displays::Always_except_when_interface_is_hidden;
 
 [Setting name="Anchor X position" min=0 max=1]
 float anchorX = .5;
@@ -122,12 +128,38 @@ string getDisplayText() {
 	return "";
 }
 
+enum RenderMode {
+    Normal,
+    Interface
+}
+
 void Render() {
-	if(hideWithIFace && !UI::IsGameUIVisible()) {
-		return;
-	}
-	
-	if(showCounter && CP::inGame && (CP::maxCP > 0 || !hideIfZeroCP)) {
+    if (can_render(RenderMode::Normal)) render_window();
+}
+
+void RenderInterface() {
+    if (can_render(RenderMode::Interface)) render_window();
+}
+
+bool can_render(RenderMode rendermode) {
+	if (!showCounter) return false;
+    if (rendermode == RenderMode::Normal && (setting_display == displays::Only_when_Openplanet_menu_is_open)) return false;
+    if (rendermode == RenderMode::Interface && (setting_display != displays::Only_when_Openplanet_menu_is_open)) return false;
+
+    auto app = cast<CTrackMania>(GetApp());
+#if TMNEXT||MP4
+    auto map = app.RootMap;
+#elif TURBO
+    auto map = app.Challenge;
+#endif
+    if (map is null || map.MapInfo.MapUid == "" || app.Editor !is null) return false;
+    if (app.CurrentPlayground is null || app.CurrentPlayground.Interface is null  ||
+     (setting_display == displays::Always_except_when_interface_is_hidden && !UI::IsGameUIVisible())) return false;
+    return true;
+}
+
+void render_window() {	
+	if(CP::inGame && (CP::maxCP > 0 || !hideIfZeroCP)) {
 		string text = getDisplayText();
 		
 		nvg::FontSize(fontSize);
