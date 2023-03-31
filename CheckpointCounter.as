@@ -5,8 +5,20 @@
 [Setting name="Show counter"]
 bool showCounter = true;
 
+[Setting name="Show drop shadow"]
+bool showDropShadow = true;
+
+[Setting name="Show background"]
+bool showBackground = false;
+
 [Setting name="Hide counter when interface is hidden"]
-bool hideWithIFace = false;
+bool hideWithIFace = true;
+
+[Setting name="Hide counter when the Openplanet overlay is hidden"]
+bool hideWithOverlay = false;
+
+[Setting name="Hide the counter if there are no checkpoints on the current map"]
+bool hideIfZeroCP = false;
 
 [Setting name="Anchor X position" min=0 max=1]
 float anchorX = .5;
@@ -19,12 +31,6 @@ float anchorY = .895;
 #elif MP4
 float anchorY = .88;
 #endif
-
-[Setting name="Show background"]
-bool showBackground = false;
-
-[Setting name="Hide the counter if there are no checkpoints on the current map"]
-bool hideIfZeroCP = false;
 
 [Setting name="Font size" min=8 max=72]
 int fontSize = 24;
@@ -113,7 +119,6 @@ string getDisplayText() {
 		} else {
 			return doFormat("%c / %t");
 		}
-		
 	case EDispMode::ShowLaps:
 		return doFormat("%D / %T");
 	case EDispMode::ShowCustom:
@@ -124,6 +129,10 @@ string getDisplayText() {
 
 void Render() {
 	if(hideWithIFace && !UI::IsGameUIVisible()) {
+		return;
+	}
+	
+	if(hideWithOverlay && !UI::IsOverlayShown()) {
 		return;
 	}
 	
@@ -142,6 +151,12 @@ void Render() {
 			nvg::RoundedRect(anchorX * Draw::GetWidth() - size.x * 0.5 - 8, anchorY * Draw::GetHeight() - size.y * 0.5 - 6, size.x + 16, size.y + 8, 5);
 			nvg::Fill();
 			nvg::ClosePath();
+		}
+		
+		if(showDropShadow) {
+			nvg::FillColor(vec4(0, 0, 0, 1));
+			int shadowOffset = 2;
+			nvg::Text(anchorX * Draw::GetWidth() + shadowOffset, anchorY * Draw::GetHeight() + shadowOffset, text);
 		}
 		
 		if(finishColorChange && CP::curCP == CP::maxCP && (!finishColorChangeLastLapOnly || CP::curLap + 1 == CP::maxLap)) {
